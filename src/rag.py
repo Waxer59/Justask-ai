@@ -73,7 +73,7 @@ prompt = ChatPromptTemplate(
 
 class RAG:
     @staticmethod
-    def load_documents(bucket_name, prefix):
+    def load_documents(bucket_name, prefix, documents_keys):
         s3 = boto3.client("s3",
                           endpoint_url=R2_ENDPOINT,
                           aws_access_key_id=R2_ACCESS_KEY_ID,
@@ -84,6 +84,9 @@ class RAG:
         for obj in response.get("Contents", []):
             file_key = obj["Key"]
             if file_key.endswith("/"):
+                continue
+
+            if file_key not in documents_keys and documents_keys is not None:
                 continue
 
             user_id = file_key.split("/")[0]
@@ -128,15 +131,16 @@ class RAG:
             filter={"user_id": user_id, "file_key": {"$in": documents_keys}})
 
     @staticmethod
-    def add_documents(bucket_name, user_id):
-        raw_docs = RAG.load_documents(bucket_name, prefix=f"{user_id}/")
+    def add_documents(bucket_name, user_id, documents_keys):
+        raw_docs = RAG.load_documents(
+            bucket_name, f"{user_id}/", documents_keys)
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000, chunk_overlap=200)
         docs = splitter.split_documents(raw_docs)
         vectorstore.add_documents(docs)
 
     @staticmethod
-    def query(question: str, user_id: str):
+    def query(question, user_id):
         retrieved_docs = vectorstore.similarity_search(
             question, filter={"user_id": user_id})
         docs_content = "\n\n".join(doc.page_content for doc in retrieved_docs)
