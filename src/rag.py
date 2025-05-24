@@ -1,7 +1,5 @@
 import os
 import boto3
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
 from langchain.schema import Document
 from langchain_pinecone import PineconeVectorStore
@@ -10,6 +8,7 @@ from langchain.chat_models import init_chat_model
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_mistralai import MistralAIEmbeddings
 from PyPDF2 import PdfReader
+from prompts import standard_prompt
 
 load_dotenv()
 
@@ -47,28 +46,6 @@ embedding_model = MistralAIEmbeddings(model="mistral-embed")
 vectorstore = PineconeVectorStore(embedding=embedding_model, index=index)
 
 llm = init_chat_model("llama3-8b-8192", model_provider="groq")
-
-prompt = ChatPromptTemplate(
-    [
-        ("human", """
-    You are a helpful and knowledgeable assistant. Use only the information provided in the context to answer the following question clearly, accurately, and helpfully.
-
-    Context:
-    {context}
-
-    Question:
-    {question}
-
-    Instructions:
-    - Answer only using the information available in the context.
-    - If the information is not in the context, honestly say you don't know or there is not enough information.
-    - Respond in the same language the question is asked.
-    - Give direct and precise answers without prefacing with phrases like "According to the context" or similar.
-    - Be clear, concise, and provide enough detail to fully answer the question.
-    - Maintain a professional and friendly tone.
-    """),
-    ]
-)
 
 
 class RAG:
@@ -140,11 +117,21 @@ class RAG:
         vectorstore.add_documents(docs)
 
     @staticmethod
+    def generate_question(custom_prompt, user_id):
+        retrieved_docs = vectorstore.similarity_search(
+            "general overview", filter={"user_id": user_id})
+        docs_content = "\n\n".join(doc.page_content for doc in retrieved_docs)
+        messages = custom_prompt.invoke(
+            {"context": docs_content})
+        response = llm.invoke(messages)
+        return {"answer": response.content}
+
+    @staticmethod
     def query(question, user_id):
         retrieved_docs = vectorstore.similarity_search(
             question, filter={"user_id": user_id})
         docs_content = "\n\n".join(doc.page_content for doc in retrieved_docs)
-        messages = prompt.invoke(
+        messages = standard_prompt.invoke(
             {"question": question, "context": docs_content})
         response = llm.invoke(messages)
         return {"answer": response.content}
