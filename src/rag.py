@@ -8,7 +8,7 @@ from langchain.chat_models import init_chat_model
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_mistralai import MistralAIEmbeddings
 from PyPDF2 import PdfReader
-from prompts import standard_prompt
+from prompts import standard_prompt, feedback_prompt
 
 load_dotenv()
 
@@ -117,6 +117,16 @@ class RAG:
         vectorstore.add_documents(docs)
 
     @staticmethod
+    def generate_feedback(questionAsked, user_id):
+        retrieved_docs = vectorstore.similarity_search(
+            "general overview", filter={"user_id": user_id})
+        docs_content = "\n\n".join(doc.page_content for doc in retrieved_docs)
+        messages = feedback_prompt.invoke(
+            {"context": docs_content, "question": questionAsked})
+        response = llm.invoke(messages)
+        return {"feedback": response.content}
+
+    @staticmethod
     def generate_question(custom_prompt, user_id):
         retrieved_docs = vectorstore.similarity_search(
             "general overview", filter={"user_id": user_id})
@@ -124,7 +134,7 @@ class RAG:
         messages = custom_prompt.invoke(
             {"context": docs_content})
         response = llm.invoke(messages)
-        return {"answer": response.content}
+        return {"question": response.content}
 
     @staticmethod
     def query(question, user_id):

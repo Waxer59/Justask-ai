@@ -58,7 +58,6 @@ def clear_documents(user_id):
     RAG.clear_documents(user_id, documents_keys)
     return {"status": "success"}
 
-
 @app.route("/agents/<agent>", methods=["GET"])
 @verify_token
 def custom_query(user_id, agent):
@@ -72,6 +71,12 @@ def custom_query(user_id, agent):
     response = RAG.generate_question(custom_prompt, user_id)
     return response
 
+@app.route("/agents/feedback", methods=["POST"])
+@verify_token
+def agents_feedback(user_id):
+    context = request.json["context"]
+    response = RAG.generate_feedback(context, user_id)
+    return response
 
 @app.route("/agents", methods=["GET"])
 @verify_token
