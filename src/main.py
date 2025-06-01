@@ -55,7 +55,7 @@ def add_documents(user_id):
 @app.route("/documents", methods=["DELETE"])
 @verify_token
 def clear_documents(user_id):
-    documents_keys = request.json["documents_keys"]
+    documents_keys = request.json["document_keys"]
     RAG.clear_documents(user_id, documents_keys)
     return {"status": "success"}
 
